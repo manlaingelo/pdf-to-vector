@@ -3,11 +3,12 @@ name = "pdf-to-vector"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11,<3.14"
 dependencies = [
-    "chromadb>=0.3.23",
+    "chromadb",
     "google-genai>=1.49.0",
     "numpy>=2.3.4",
+    "pydantic-settings>=2.11.0",
     "pypdf>=6.1.3",
     "scikit-learn>=1.7.2",
     "tqdm>=4.67.1",
