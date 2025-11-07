@@ -50,6 +50,9 @@ make cluster
 # Browse the database
 make browse
 
+# Chat with your PDFs using AI
+make chat
+
 # Run the main script
 make run
 ```
@@ -78,6 +81,16 @@ make run
    # or: make browse
    ```
 
+4. **Chat with your PDFs using RAG**
+   ```bash
+   # Interactive mode
+   uv run python rag_chat.py
+   # or: make chat
+   
+   # Single query mode
+   uv run python rag_chat.py "What is this document about?"
+   ```
+
 ## Configuration
 
 Edit the constants in `cluster_pdfs.py`:
@@ -90,6 +103,17 @@ EMBEDDING_MODEL = "text-embedding-004"
 K_CLUSTERS = 10                 # Number of clusters
 ```
 
+Edit the constants in `rag_chat.py`:
+
+```python
+CHROMA_PATH = "./chroma_db"
+COLLECTION_NAME = "pdf_cluster_data"
+EMBEDDING_MODEL = "text-embedding-004"
+GENERATIVE_MODEL = "gemini-2.0-flash-exp"
+TOP_K_RESULTS = 5               # Number of relevant documents to retrieve
+RELEVANCE_THRESHOLD = 0.3       # Minimum relevance score (0-1)
+```
+
 ## Project Structure
 
 ```
@@ -97,6 +121,7 @@ pdf-to-vector/
 ├── pdfs/                  # Place your PDF files here
 ├── chroma_db/            # ChromaDB persistent storage
 ├── cluster_pdfs.py       # Main clustering script
+├── rag_chat.py           # RAG-powered chat interface
 ├── main.py               # Entry point script
 ├── browse.sh             # Helper script to browse DB
 ├── Makefile              # Task automation
@@ -105,6 +130,8 @@ pdf-to-vector/
 ```
 
 ## How It Works
+
+### Document Processing (cluster_pdfs.py)
 
 1. **Text Extraction**: PyPDF extracts text from each page of every PDF in the `pdfs/` directory
 
@@ -115,6 +142,20 @@ pdf-to-vector/
 4. **Clustering**: K-Means algorithm groups similar documents based on their vector embeddings
 
 5. **Metadata Update**: Each document is tagged with its `cluster_id` in ChromaDB
+
+### RAG Chat System (rag_chat.py)
+
+1. **Query Embedding**: User's question is converted to a vector using the same embedding model
+
+2. **Semantic Search**: ChromaDB finds the most relevant document chunks based on vector similarity
+
+3. **Relevance Filtering**: Documents below the relevance threshold are filtered out to prevent hallucinations
+
+4. **Context Building**: Top-K relevant documents are formatted with metadata (source, page, cluster)
+
+5. **AI Generation**: Gemini generates a contextual answer using the retrieved documents
+
+6. **Response**: AI provides an answer with source citations, or a "no data" message if the question is out of scope
 
 ## Dependencies
 
@@ -145,6 +186,20 @@ uv run chroma browse pdf_cluster_data --local --path ./chroma_db
 ### No PDFs Found
 
 Ensure PDF files are directly in the `./pdfs` directory (not in subdirectories)
+
+### API Rate Limit (429 Error)
+
+If you get "RESOURCE_EXHAUSTED" errors:
+- Wait a few moments before retrying
+- Check your [Google AI Studio quota](https://aistudio.google.com/)
+- Consider using a different API key or upgrading your quota
+
+### Out-of-Scope Questions
+
+If the RAG system returns "no relevant information":
+- Your question may be outside the scope of your PDF documents
+- Try rephrasing with terms from your documents
+- Adjust `RELEVANCE_THRESHOLD` in `rag_chat.py` (lower = more permissive)
 
 ## License
 

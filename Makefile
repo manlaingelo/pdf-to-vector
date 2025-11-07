@@ -1,4 +1,4 @@
-.PHONY: browse sync run cluster help
+.PHONY: browse sync run cluster chat help
 
 help:
 	@echo "Available commands:"
@@ -6,6 +6,7 @@ help:
 	@echo "  make sync    - Sync dependencies with uv"
 	@echo "  make run     - Run the main PDF processing script"
 	@echo "  make cluster - Run the PDF clustering script"
+	@echo "  make chat    - Start interactive RAG chat with your PDFs"
 
 browse:
 	uv run chroma browse pdf_cluster_data --local --path ./chroma_db
@@ -18,3 +19,6 @@ run:
 
 cluster:
 	uv run python cluster_pdfs.py
+
+chat:
+	uv run python rag_chat.py
