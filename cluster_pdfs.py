@@ -5,45 +5,49 @@ from chromadb.utils import embedding_functions
 from sklearn.cluster import KMeans
 import numpy as np
 from tqdm import tqdm
-from google import genai
+import requests
+import json
 
 # --- Configuration ---
 PDF_DIR = "./pdfs"
 CHROMA_PATH = "./chroma_db"
 COLLECTION_NAME = "pdf_cluster_data"
-EMBEDDING_MODEL = "text-embedding-004"  # Recommended Google Embedding Model
+EMBEDDING_MODEL = "all-minilm:l6-v2"  # Local Ollama model
 K_CLUSTERS = 10  # Number of clusters for K-Means
-
-# Ensure your Google API Key is set as an environment variable
-# export GEMINI_API_KEY='YOUR_API_KEY'
-if not os.getenv("GEMINI_API_KEY"):
-    raise ValueError("GEMINI_API_KEY environment variable not set.")
 
 
 # --- 2. Chroma Setup and Embedding ---
 
+
 def create_chroma_collection(db_path: str, name: str, docs: list):
     """Initializes ChromaDB, embeds documents, and stores them."""
 
-    # 2.1 Custom Google Embedding Function for Chroma
-    class GoogleEmbeddingFunction(embedding_functions.EmbeddingFunction):
+    # 2.1 Custom Ollama Embedding Function for Chroma
+    class OllamaEmbeddingFunction(embedding_functions.EmbeddingFunction):
         def __call__(self, input_data):
-            client = genai.Client()
-            response = client.models.embed_content(
-                model=EMBEDDING_MODEL,
-                contents=input_data,
-                config={"taskType": "RETRIEVAL_DOCUMENT"},
-            )
-            # response.embeddings is a list of Embedding objects
-            return [emb.values for emb in response.embeddings]
+            embeddings = []
+            for text in input_data:
+                try:
+                    response = requests.post(
+                        "http://localhost:11434/api/embeddings",
+                        json={"model": EMBEDDING_MODEL, "prompt": text},
+                    )
+                    response.raise_for_status()
+                    embeddings.append(json.loads(response.text)["embedding"])
+                except requests.exceptions.RequestException as e:
+                    print(f"Error getting embedding from Ollama: {e}")
+                    # Handle error appropriately, maybe return a zero vector
+                    # or skip this document. For now, we'll just print.
+                    # Depending on the use case, you might want to retry.
+            return embeddings
 
     # 2.2 Initialize Chroma Client
     print(f"🛠️ Initializing Chroma client at {db_path}...")
     client = chromadb.PersistentClient(path=db_path)
 
-    # 2.3 Create/Get Collection with the Google Embedding Function
+    # 2.3 Create/Get Collection with the Ollama Embedding Function
     collection = client.get_or_create_collection(
-        name=name, embedding_function=GoogleEmbeddingFunction()
+        name=name, embedding_function=OllamaEmbeddingFunction()
     )
 
     # 2.4 Prepare Data for Chroma (IDs must be unique)
@@ -153,7 +157,7 @@ if __name__ == "__main__":
         print("🛑 No text extracted. Check PDF_DIR and file integrity.")
     else:
         # 2. Create Chroma Collection (Embeddings happen here)
-        # NOTE: Chroma will automatically use the Google embedding function
+        # NOTE: Chroma will automatically use the embedding function
         # to generate and store the vectors for the documents.
         chroma_collection = create_chroma_collection(
             CHROMA_PATH, COLLECTION_NAME, all_docs
